@@ -437,45 +437,49 @@ class window_main(Tk):
             self.listbox_qqdrive.itemconfig(self.listbox_qqdrive.size()-1,fg=item_color)
 
     def download(self):
-        task_list=map(int,self.listbox_qqdrive.curselection())
-        task_filename=[]
-        if task_list==[]:
-            showwarning('错误','尚未选择要下载文件')
+        task_index=map(int,self.listbox_qqdrive.curselection())
+        if task_index==[]:
+            showwarning('','尚未选择要下载文件')
         else:
-            if askyesno('下载任务','确认下载%d项任务？'%(len(task_list))):
+            if askyesno('下载任务','确认下载%d项任务？'%(len(task_index))):
                 try:
-                    self.get_source_address(task_list)
+                    self.get_source_address(task_index)
                     cmds=[]
-                    for i in task_list:
+                    task=[]
+                    for i in task_index:
+                        if eval(self.file_progress[i])<100:
+                            showwarning('','请选择完成度100%的资源下载')
+                            self.listbox_qqdrive.select_clear(0,END)
+                            return
                         cmd=['aria2c', '-c', '-s10', '-x10', '--header', 'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]
                         cmds.append(cmd)
-                        task_filename.append(self.listbox_qqdrive.get(i)[self.listbox_qqdrive.get(i).index('|')+1:])
-                    for i in range(len(cmds)):
-                        aria=Popen(cmds[i],cwd=download_path)
+                        task.append((i,self.file_name[i]))
+                    for j in range(len(cmds)):
+                        aria=Popen(cmds[j],cwd=download_path)
                         aria.wait()
                         try:                    
-                            Popen(["notify-send",task_filename[i][task_filename[i].index('|')+1:].strip(),"旋风离线下载完成"])
+                            Popen(["notify-send",task[j][1],"旋风离线下载完成"])
+                            self.listbox_qqdrive.select_clear(task[j][0])
                         except:
                             print ('Download completed.')
-    #                         if os.name=='posix': print("notify-send error,you should have libnotify-bin installed.")
+#                         if os.name=='posix': print("notify-send error,you should have libnotify-bin installed.")
                 except:
-                    showerror('错误','无法下载，请刷新列表或重试')                                 
+                    showerror('','无法下载，请刷新列表或重试')                                 
         return
     
     def add_task(self):
         print 'Add Task'
         
     def del_task(self):
-        task_list=map(int,self.listbox_qqdrive.curselection())
-        if task_list==[]:
+        task_index=map(int,self.listbox_qqdrive.curselection())
+        if task_index==[]:
             showwarning('','尚未选择要删除文件')
         else:
-            if askyesno('删除任务','确认删除%d项任务？'%(len(task_list))):
+            if askyesno('删除任务','确认删除%d项任务？'%(len(task_index))):
                 try:                    
                     urlv = 'http://lixian.qq.com/handler/lixian/del_lixian_task.php'
-                    for i in task_list:
+                    for i in task_index:
                         data={'mids':self.filemid[i]}
-                        
                         self.get_url(urlv,data)
                         self.refresh_list()
                 except:
