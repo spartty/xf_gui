@@ -291,7 +291,23 @@ class window_main(Tk):
         self.file_size[y],self.file_size[x]=self.file_size[x],self.file_size[y]
         self.file_name[y],self.file_name[x]=self.file_name[x],self.file_name[y]
         self.file_progress[y],self.file_progress[x]=self.file_progress[x],self.file_progress[y]
- 
+   
+    def pop_menu(self, event):
+        x=self.listbox_qqdrive.nearest(event.y)
+        print x
+        if str(x) in self.listbox_qqdrive.curselection():
+            self.menu_context.post(event.x_root, event.y_root)
+        else:
+            self.listbox_qqdrive.select_clear(0, END)
+            self.listbox_qqdrive.select_set(x)
+            self.menu_context.post(event.x_root, event.y_root)         
+    
+    def fold_menu(self,event):
+        self.menu_context.unpost()     
+    
+    def hello(self):
+        print 'hello'
+    
     def __init__(self,login_status):
         Tk.__init__(self)        
         self.title('QQ旋风离线下载')
@@ -335,7 +351,13 @@ class window_main(Tk):
         self.listbox_qqdrive['yscrollcommand'] = scroll_y.set
         scroll_x = Scrollbar(frame_list, orient=HORIZONTAL, command=self.listbox_qqdrive.xview)
         scroll_x.grid(row=1, sticky=W+E)
-        self.listbox_qqdrive['xscrollcommand'] = scroll_x.set       
+        self.listbox_qqdrive['xscrollcommand'] = scroll_x.set
+        # 右键菜单
+        self.bind("<Button-1>", self.fold_menu)
+        self.listbox_qqdrive.bind("<Button-3>", self.pop_menu)
+        self.menu_context = Menu(self, tearoff=0)
+        self.menu_context.add_command(label="下载", command=self.download)
+        self.menu_context.add_command(label="删除", command=self.del_task)   
         # Center the main window
         self.update_idletasks()
         size_x = self.winfo_width()
@@ -349,7 +371,7 @@ class window_main(Tk):
             self.refresh_listbox()
         else:
             window_login(self) 
-   
+    
     def get_url(self,url,data=None):
         ##向QQ旋风服务器请求数据 
         if data:
