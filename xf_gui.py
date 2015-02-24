@@ -152,9 +152,8 @@ class window_login(Toplevel):
         self.button_login.grid(row=0,column=1)
         self.button_cancel = Button(self.frame_login_cancel, text="取消",command=self.cancel)
         self.button_cancel.grid(row=0,column=2)
-        self.frame_login_cancel.columnconfigure(0, weight=1)
-        self.frame_login_cancel.columnconfigure(1, weight=1)
-        self.frame_login_cancel.columnconfigure(2, weight=1)
+        for i in range(0,3):
+            self.frame_login_cancel.columnconfigure(i, weight=1)
         
         self.bind("<Return>", self.login)
         self.bind("<Escape>", self.cancel)
@@ -294,7 +293,6 @@ class window_main(Tk):
    
     def pop_menu(self, event):
         x=self.listbox_qqdrive.nearest(event.y)
-        print x
         if str(x) in self.listbox_qqdrive.curselection():
             self.menu_context.post(event.x_root, event.y_root)
         else:
@@ -317,12 +315,8 @@ class window_main(Tk):
         frame_button = Frame(self, padx=5, pady=5,relief=GROOVE)
         frame_button.configure(borderwidth=2)
         frame_button.grid(row =0,padx=10, pady=10,sticky=W+E)
-        frame_button.columnconfigure(0, weight=1)
-        frame_button.columnconfigure(1, weight=1)
-        frame_button.columnconfigure(2, weight=1)
-        frame_button.columnconfigure(3, weight=1)
-        frame_button.columnconfigure(4, weight=1)
-        frame_button.columnconfigure(5, weight=1)
+        for i in range(0,6):
+            frame_button.columnconfigure(i, weight=1)
         button_download = Button(frame_button,text = '下载',command=self.download)
         button_refresh = Button(frame_button,text = '刷新',command=self.refresh_list)
         button_add = Button(frame_button,text = '添加',command=self.add_task)
