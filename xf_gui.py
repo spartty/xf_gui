@@ -5,7 +5,7 @@ from __future__ import division
 from Tkinter import *
 from PIL import Image, ImageTk
 from tkMessageBox import showerror,showwarning,showinfo,askyesno
-from subprocess import Popen
+from subprocess import Popen, PIPE
 import urllib as parse
 import urllib2 as request
 import cPickle as pickle
@@ -312,7 +312,7 @@ class window_main(Tk):
         button_add = Button(frame_button,text = '添加',command=self.add_task)
         button_delete = Button(frame_button, text = '删除', command=self.del_task)
         button_sort = Menubutton(frame_button, text = '排序',relief=RAISED) 
-        button_quit = Button(frame_button, text = '退出', command=self.quit)   
+        button_quit = Button(frame_button, text = '退出', command=self.exit)   
         button_download.grid(row=0, column=0, padx=5, pady=5)
         button_refresh.grid(row=0, column=1, padx=5, pady=5)
         button_add.grid(row=0, column=2, padx=5, pady=5)
@@ -328,7 +328,7 @@ class window_main(Tk):
         # 创建列表框
         frame_list = LabelFrame(self,text='资源列表', padx=5, pady=5, labelanchor=NE)
         frame_list.grid(row =1,padx=10, pady=10,sticky=W+E)
-        self.listbox_qqdrive = Listbox(frame_list, selectmode=MULTIPLE, width=50,height=10)
+        self.listbox_qqdrive = Listbox(frame_list, selectmode=EXTENDED, width=50,height=10)
         self.listbox_qqdrive.grid(column=0, row=0,sticky=W+E)  
         scroll_y = Scrollbar(frame_list, orient=VERTICAL, command=self.listbox_qqdrive.yview)
         scroll_y.grid(column=1, row=0, sticky=N+S)
@@ -454,15 +454,10 @@ class window_main(Tk):
                         cmd=['aria2c', '-c', '-s10', '-x10', '--header', 'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]
                         cmds.append(cmd)
                         task.append((i,self.file_name[i]))
+                    self.aria=[]
                     for j in range(len(cmds)):
-                        aria=Popen(cmds[j],cwd=download_path)
-                        aria.wait()
-                        try:                    
-                            Popen(["notify-send",task[j][1],"旋风离线下载完成"])
-                            self.listbox_qqdrive.select_clear(task[j][0])
-                        except:
-                            print ('Download completed.')
-#                         if os.name=='posix': print("notify-send error,you should have libnotify-bin installed.")
+                        self.aria.append(Popen(cmds[j],cwd=download_path,stdout=PIPE, bufsize=-1))
+                    
                 except:
                     showerror('','无法下载，请刷新列表或重试')                                 
         return
@@ -508,12 +503,12 @@ class window_main(Tk):
             if  self.sorting_order==1:
                 for i in range(0,len(self.filesize)):
                     for j in range(0,len(self.filesize)):
-                        if eval(self.filesize[j]) > eval(self.filesize[i]):
+                        if self.filesize[j] > self.filesize[i]:
                             self.swap(i,j)
             else:
                 for i in range(0,len(self.filesize)):
                     for j in range(0,len(self.filesize)):
-                        if eval(self.filesize[j]) < eval(self.filesize[i]):
+                        if self.filesize[j] < self.filesize[i]:
                             self.swap(i,j)
                         
         elif option=='name':
@@ -529,6 +524,19 @@ class window_main(Tk):
                             self.swap(i, j)
         self.sorting_order=self.sorting_order*(-1)
         self.refresh_listbox()
+        
+    def exit(self):
+        print 
+        try:
+            for i in (0,len(self.aria)):
+                self.aria[i].terminate()
+        except:
+            try:
+                for i in (0,len(self.aria)):
+                    self.aria[i].terminate()
+            except:
+                pass
+        self.quit()
 
 def check_login(cookiepath):    
     status=False
@@ -543,4 +551,5 @@ def check_login(cookiepath):
     request.install_opener(opener)
     return status
 
-window_main(check_login(cookie_path)).mainloop()
+if __name__== '__main__':
+    window_main(check_login(cookie_path)).mainloop()
