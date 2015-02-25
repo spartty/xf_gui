@@ -4,6 +4,12 @@
 
 kikyous的XF_TUI for Linux地址：https://github.com/kikyous/xfdown
 
+![](https://github.com/spartty/xf_gui/blob/alpha/screenshot1.png)
+
+![](https://github.com/spartty/xf_gui/blob/alpha/screenshot2.png)
+
+
+
 现有功能：
 登录，远程资源列表，下载/删除，列表排序，右键菜单，本地任务列表，本地任务控制(开始/暂停/继续)
 
