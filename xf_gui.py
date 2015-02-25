@@ -158,7 +158,7 @@ class window_login(Toplevel):
         self.bind("<Return>", self.login)
         self.bind("<Escape>", self.cancel)
         
-        # 检查是否存在config文件并从中读取用户密码信息
+        # check the config file
         if os.path.isfile(self.config_path):
             config_data=self.load_config()
             if not config_data['qq']=='':
@@ -202,7 +202,7 @@ class window_login(Toplevel):
         self.qqid=self.entry_qqid.get().strip()
         try:
             if eval(self.qqid)>10000:
-                # 检查QQ号码是否有效，最小的QQ号码是10001
+                # validate the QQ id，QQ ID starts from 10001
                 urlv = 'http://check.ptlogin2.qq.com/check?uin=%s&appid=567008010&r=%s'%(self.qqid,random.Random().random())
                 string = self.request_url(url=urlv)
                 self.qqvc=eval(string.split("(")[1].split(")")[0])
@@ -311,47 +311,72 @@ class window_main(Tk):
         self.title('QQ旋风离线下载')
         self.resizable(0, 0)
         self.sorting_order=-1
-        # 创建命令按钮     
-        frame_button = Frame(self, padx=5, pady=5,relief=GROOVE)
-        frame_button.configure(borderwidth=2)
-        frame_button.grid(row =0,padx=10, pady=10,sticky=W+E)
-        for i in range(0,6):
-            frame_button.columnconfigure(i, weight=1)
-        button_download = Button(frame_button,text = '下载',command=self.download)
-        button_refresh = Button(frame_button,text = '刷新',command=self.refresh_list)
-        button_add = Button(frame_button,text = '添加',command=self.add_task)
-        button_delete = Button(frame_button, text = '删除', command=self.del_task)
-        button_sort = Menubutton(frame_button, text = '排序',relief=RAISED) 
-        button_quit = Button(frame_button, text = '退出', command=self.exit)   
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        # Command buttons     
+        frame_remote_button = Frame(self, padx=5, pady=5,relief=GROOVE)
+        frame_remote_button.configure(borderwidth=2)
+        frame_remote_button.grid(row =0,column=0,columnspan=1,padx=10, pady=10,sticky=W+E)
+        for i in range(0,5):
+            frame_remote_button.columnconfigure(i, weight=1)
+        button_download = Button(frame_remote_button,text = '下载',command=self.download)
+        button_refresh = Button(frame_remote_button,text = '刷新',command=self.refresh_list)
+        button_add = Button(frame_remote_button,text = '添加',command=self.add_task)
+        button_delete = Button(frame_remote_button, text = '删除', command=self.del_task)
+        button_sort = Menubutton(frame_remote_button, text = '排序',relief=RAISED) 
         button_download.grid(row=0, column=0, padx=5, pady=5)
         button_refresh.grid(row=0, column=1, padx=5, pady=5)
         button_add.grid(row=0, column=2, padx=5, pady=5)
         button_delete.grid(row=0, column=3, padx=5, pady=5)
         button_sort.grid(row=0, column=4, padx=5, pady=5)
-        button_quit.grid(row=0, column=5, padx=5, pady=5)
-        # 按钮菜单-排序
+        frame_local_button = Frame(self, padx=5, pady=5,relief=GROOVE)
+        frame_local_button.configure(borderwidth=2)
+        for i in range(0,4):
+            frame_local_button.columnconfigure(i, weight=1)
+        frame_local_button.grid(row =0,column=1,columnspan=1,padx=10, pady=10,sticky=W+E)
+        button_resume = Button(frame_local_button, text = '下载', command=self.exit)
+        button_pause = Button(frame_local_button, text = '暂停', command=self.exit)
+        button_remove = Button(frame_local_button, text = '删除', command=self.exit)
+        button_quit = Button(frame_local_button, text = '退出', command=self.exit)
+        button_resume.grid(row=0,column=0, padx=5, pady=5)
+        button_pause.grid(row=0,column=1, padx=5, pady=5)
+        button_remove.grid(row=0,column=2, padx=5, pady=5)
+        button_quit.grid(row=0,column=3, padx=5, pady=5)
+        # Menu-Sort_list
         button_sort.menu=Menu(button_sort,tearoff=0)
         button_sort['menu']=button_sort.menu
         button_sort.menu.add_command ( label="大小", command=lambda:self.sort_list('size'))
         button_sort.menu.add_command ( label="进度", command=lambda:self.sort_list('progress'))
         button_sort.menu.add_command ( label="名称", command=lambda:self.sort_list('name'))
-        # 创建列表框
-        frame_list = LabelFrame(self,text='资源列表', padx=5, pady=5, labelanchor=NE)
-        frame_list.grid(row =1,padx=10, pady=10,sticky=W+E)
-        self.listbox_qqdrive = Listbox(frame_list, selectmode=EXTENDED, width=50,height=10)
+        # Remote list box
+        frame_remote_list = LabelFrame(self,text='离线资源', padx=5, pady=5, labelanchor=NE)
+        frame_remote_list.grid(row =1,column=0,padx=10, pady=10,sticky=W+E)
+        self.listbox_qqdrive = Listbox(frame_remote_list, selectmode=EXTENDED, width=40,height=10)
         self.listbox_qqdrive.grid(column=0, row=0,sticky=W+E)  
-        scroll_y = Scrollbar(frame_list, orient=VERTICAL, command=self.listbox_qqdrive.yview)
+        scroll_y = Scrollbar(frame_remote_list, orient=VERTICAL, command=self.listbox_qqdrive.yview)
         scroll_y.grid(column=1, row=0, sticky=N+S)
         self.listbox_qqdrive['yscrollcommand'] = scroll_y.set
-        scroll_x = Scrollbar(frame_list, orient=HORIZONTAL, command=self.listbox_qqdrive.xview)
+        scroll_x = Scrollbar(frame_remote_list, orient=HORIZONTAL, command=self.listbox_qqdrive.xview)
         scroll_x.grid(row=1, sticky=W+E)
         self.listbox_qqdrive['xscrollcommand'] = scroll_x.set
-        # 右键菜单
+        # Pop-up menus for remote list
         self.bind("<Button-1>", self.fold_menu)
         self.listbox_qqdrive.bind("<Button-3>", self.pop_menu)
         self.menu_context = Menu(self, tearoff=0)
         self.menu_context.add_command(label="下载", command=self.download)
-        self.menu_context.add_command(label="删除", command=self.del_task)   
+        self.menu_context.add_command(label="删除", command=self.del_task) 
+        # Local list box
+        frame_local_list = LabelFrame(self,text='本地任务', padx=5, pady=5, labelanchor=NE)
+        frame_local_list.grid(row =1,column=1,padx=10, pady=10,sticky=W+E)
+        self.listbox_local = Listbox(frame_local_list, selectmode=EXTENDED, width=30,height=10)
+        self.listbox_local.grid(column=0, row=0,sticky=W+E)  
+        scroll_y_local = Scrollbar(frame_local_list, orient=VERTICAL, command=self.listbox_local.yview)
+        scroll_y_local.grid(column=1, row=0, sticky=N+S)
+        self.listbox_local['yscrollcommand'] = scroll_y_local.set
+        scroll_x_local = Scrollbar(frame_local_list, orient=HORIZONTAL, command=self.listbox_local.xview)
+        scroll_x_local.grid(column=0,row=1, sticky=W+E)
+        self.listbox_local['xscrollcommand'] = scroll_x_local.set
+  
         # Center the main window
         self.update_idletasks()
         size_x = self.winfo_width()
@@ -359,7 +384,7 @@ class window_main(Tk):
         pos_x = (self.winfo_screenwidth() // 2) - (size_x // 2)
         pos_y = (self.winfo_screenheight() // 2) - (size_y // 2)
         self.geometry('+{}+{}'.format(pos_x, pos_y))
-        #检查是否需要QQ登录
+        # Check login_status
         if login_status:
             self.get_list()
             self.refresh_listbox()
@@ -367,7 +392,7 @@ class window_main(Tk):
             window_login(self) 
     
     def get_url(self,url,data=None):
-        ##向QQ旋风服务器请求数据 
+        # Communicate with the QQ-lixian server 
         if data:
             data = parse.urlencode(data).encode('utf-8')
             fp=request.urlopen(url,data)
@@ -381,7 +406,7 @@ class window_main(Tk):
         return string
   
     def get_list(self):
-        #获取离线资源列表
+        # Get the remote list
         urlv = 'http://lixian.qq.com/handler/lixian/get_lixian_items.php'
         res = self.get_url(urlv, {'page': 0, 'limit': 200})
         res = json.JSONDecoder().decode(res)
@@ -422,7 +447,7 @@ class window_main(Tk):
                 self.file_name.append(decode_u8(self.filename[num]))
         
     def get_source_address(self,filelist):
-        #获取资源原始下载地址
+        # Get the download address for remote files
         urlv = 'http://lixian.qq.com/handler/lixian/get_http_url.php'
         self.filehttp = [''] * len(self.filehash)
         self.filecom = [''] * len(self.filehash)
@@ -434,7 +459,7 @@ class window_main(Tk):
         return
     
     def refresh_list(self):
-        #更新离线资源列表
+        # Update the remote file list
         if not check_login(cookie_path):
             window_login(self)
         else:
@@ -442,7 +467,7 @@ class window_main(Tk):
             self.refresh_listbox()
     
     def refresh_listbox(self):
-        #更新GUI列表框
+        # Update the remote file listbox
         if not hasattr(self,'filesize') or len(self.filesize)==0:
             return
         self.listbox_qqdrive.delete(0, END)
@@ -498,7 +523,7 @@ class window_main(Tk):
         return
     
     def sort_list(self,option):
-        #列表排序，只排序列表，不刷新列表
+        #Only sort the stored list
         if not hasattr(self,'filesize'):
             showinfo('','无任务列表')
             return
