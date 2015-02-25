@@ -663,7 +663,6 @@ class window_main(Tk):
                     if self.file_status_local[i] in ['downloading','done']:
                         continue
                     elif self.file_status_local[i] in ['terminated','missing']:
-                        print 'resumed'
                         self.file_status_local[i]='downloading'
                         self.aria[i]=Popen(self.cmds_local[i],cwd=download_path)
                     elif self.file_status_local[i]=='paused':
