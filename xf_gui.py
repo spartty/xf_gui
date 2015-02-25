@@ -10,7 +10,7 @@ import urllib as parse
 import urllib2 as request
 import cPickle as pickle
 import cookielib, socket
-import sys,time
+import sys,time,signal
 import json,os,random,re,hashlib,stat
 
 # -----------------------------START DNS cache for speed up-----------------------------
@@ -268,7 +268,7 @@ class window_login(Toplevel):
                 self.parent.get_list()
                 self.parent.refresh_listbox()
                 self.parent.load_history()
-                self.parent.refresh_listbox_local()
+                self.parent.refresh_list_local()
                 self.cancel()
             elif login_result.find(decode_u8('验证码不正确')) != -1:
                 showerror('','验证码不正确')
@@ -326,8 +326,6 @@ class window_main(Tk):
         self.resizable(0, 0)
         self.sorting_order=-1
         self.userinfo=''
-        self.cmds=[]
-        self.cmds_local=[]
         
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -349,17 +347,20 @@ class window_main(Tk):
         button_sort.grid(row=0, column=4, padx=5, pady=5)
         frame_local_button = Frame(self, padx=5, pady=5,relief=GROOVE)
         frame_local_button.configure(borderwidth=2)
-        for i in range(0,4):
+        for i in range(0,5):
             frame_local_button.columnconfigure(i, weight=1)
         frame_local_button.grid(row =0,column=1,columnspan=1,padx=10, pady=10,sticky=W+E)
         button_resume = Button(frame_local_button, text = '启动', command=self.resume)
         button_pause = Button(frame_local_button, text = '暂停', command=self.pause)
         button_remove = Button(frame_local_button, text = '删除', command=self.remove)
+        button_aria = Button(frame_local_button, text = 'aria', command=self.refresh_list_local)
         button_quit = Button(frame_local_button, text = '退出', command=self.exit)
         button_resume.grid(row=0,column=0, padx=5, pady=5)
         button_pause.grid(row=0,column=1, padx=5, pady=5)
         button_remove.grid(row=0,column=2, padx=5, pady=5)
-        button_quit.grid(row=0,column=3, padx=5, pady=5)
+        button_aria.grid(row=0,column=3, padx=5, pady=5)
+        button_quit.grid(row=0,column=4, padx=5, pady=5)
+        
         # Menu-Sort_list
         button_sort.menu=Menu(button_sort,tearoff=0)
         button_sort['menu']=button_sort.menu
@@ -386,7 +387,7 @@ class window_main(Tk):
         # Local list box
         frame_local_list = LabelFrame(self,text='本地任务', padx=5, pady=5, labelanchor=NE)
         frame_local_list.grid(row =1,column=1,padx=10, pady=10,sticky=W+E)
-        self.listbox_local = Listbox(frame_local_list, selectmode=EXTENDED, width=30,height=10)
+        self.listbox_local = Listbox(frame_local_list, selectmode=EXTENDED, width=40,height=10)
         self.listbox_local.grid(column=0, row=0,sticky=W+E)  
         scroll_y_local = Scrollbar(frame_local_list, orient=VERTICAL, command=self.listbox_local.yview)
         scroll_y_local.grid(column=1, row=0, sticky=N+S)
@@ -420,15 +421,17 @@ class window_main(Tk):
             self.get_list()
             self.refresh_listbox()
             self.load_history()
+            self.refresh_list_local()
         else:
             window_login(self) 
     
     def load_history(self):
         self.local_history=os.path.expanduser('~/%s_history'%self.userinfo)
-        self.file_name_local=[]
-        self.file_progress_local=[]
+        self.file_status_local=[]
         self.file_size_local=[]
-        self.file_progress_local=[]
+        self.file_name_local=[]
+        self.cmds_local=[]
+        self.aria=[]
         if not os.path.isfile(self.local_history):
             return
         else:
@@ -437,13 +440,15 @@ class window_main(Tk):
             history=json.load(history_file)
             history_file.close()
             for item in history:
-                self.file_progress_local.append(item[0])
+                self.file_status_local.append(item[0])
                 self.file_size_local.append(item[1])
                 self.file_name_local.append(item[2])
-                self.file_progress_local.append('terminated')
+                self.cmds_local.append(item[3])
+                self.aria.append('')
+                
               
     def save_history(self):
-        history=zip(self.file_progress_local,self.file_size_local,self.file_name_local)
+        history=zip(self.file_status_local,self.file_size_local,self.file_name_local,self.cmds_local)
         history_file=open(self.local_history,"w")
         json.dump(history,history_file)
         history_file.close()
@@ -482,7 +487,7 @@ class window_main(Tk):
 
             for num in range(len(res['data'])):
                 index=res['data'][num]
-                self.filename.append(index['file_name'].encode("u8"))
+                self.filename.append(index['file_name'].split('\\')[-1].encode("u8"))
                 self.filehash.append(index['hash'])
                 size=index['file_size']
                 self.filemid.append(index['mid'])
@@ -496,9 +501,9 @@ class window_main(Tk):
                 self.file_name.append(decode_u8(self.filename[num]))
 
                 if eval(progress)==100:
-                    self.filestatus.append('ready')
+                    self.filestatus.append(True)
                 else:
-                    self.filestatus.append('incomplete')
+                    self.filestatus.append(False)
                 
                 unit=["B","K","M","G"]                
                 for i in range(4):
@@ -539,7 +544,7 @@ class window_main(Tk):
         for i in range (0,len(self.filesize)):
             if self.file_progress[i]=='100':  item_color='blue'
             else:  item_color='purple'
-            self.listbox_qqdrive.insert(END,'#'+str(i+1)+'#|'+self.file_progress[i]+'% | '+self.file_size[i]+' | '+self.file_name[i])
+            self.listbox_qqdrive.insert(END,'['+str(i+1)+']|'+self.file_progress[i]+'%|'+self.file_size[i]+'|'+self.file_name[i])
             self.listbox_qqdrive.itemconfig(self.listbox_qqdrive.size()-1,fg=item_color)
 
     def download(self):
@@ -551,31 +556,32 @@ class window_main(Tk):
                 try:
                     self.get_source_address(task_index)
                     for i in task_index:
-                        if self.filestatus[i]=='incomplete':
-                            # True for finished files, False for unfinished files.
-                            # If the download task already existed in local list
-                            # it will be added to aria[] but not local_aria[]
-                            # No need to check if the task has finished or not
-                            # aria2c will take care of that.
-                            # If download task is RUNNING, it will not be added to aria[].
+                        if self.filestatus[i]==False:
                             showwarning('','请选择已完成的离线资源')
                             self.listbox_qqdrive.select_clear(0,END)
                             return 
-                    aria=[]
-                    for i in task_index:                        
-                        cmd=['aria2c', '-c', '-s10', '-x10', '--header', 'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]
-                        if (not cmd in self.cmds) and (not cmd in self.cmds_local):
-                            self.cmds.append(cmd)
+                    local_index=[] # Keep the selections so it wont's be lost when refresh listbox
+                    for i in task_index:
+                        cmd=['aria2c', '-c', '-s10', '-x10', '--header',
+                             'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]                                         
+                        if not self.file_name[i] in self.file_name_local:
+                            self.file_status_local.append('terminated')
+                            self.file_name_local.append(self.file_name[i])
+                            self.file_size_local.append(self.file_size[i])
                             self.cmds_local.append(cmd)
-                            self.filestatus[i]='downloading'
-                            aria.append(Popen(cmd,cwd=download_path,stdout=PIPE, bufsize=-1))
-                        elif cmd in self.cmds_local:
-                            # Resume local unfinished work or ignore depending on
-                            # if progress_local=100
-                            pass
-                   
+                            self.aria.append('')
+                            self.refresh_list_local()
+                            local_index.append(self.file_name_local.index(self.file_name[i]))
+                        elif self.file_name[i] in self.file_name_local:
+                            k=self.file_name_local.index(self.file_name[i])
+                            self.cmds_local[k]=cmd
+                            if not k in local_index:
+                                local_index.append(k)
+                    for i in local_index:
+                        self.listbox_local.select_set(i)                   
+                    self.resume()   
                 except:
-                    showerror('','下载错误，请刷新列表或重试')                                 
+                    showerror('','无法下载，请刷新列表或重试')                                 
         return
     
     def add_task(self):
@@ -647,31 +653,78 @@ class window_main(Tk):
         
     def resume(self):
         # Resume local unfinished task
-        # Check if its status is "downloading","pause" or "terminated"
-        pass
-        
+        task_index=map(int,self.listbox_local.curselection())
+        if task_index==[]:
+            return
+        else:
+            try:
+                for i in task_index:
+                    if self.file_status_local[i] in ['downloading','done']:
+                        continue
+                    elif self.file_status_local[i] in ['terminated','missing']:
+                        self.file_status_local[i]='downloading'
+                        self.aria[i]=Popen(self.cmds_local[i],cwd=download_path,stdout=PIPE, bufsize=-1)
+                    elif self.file_status_local[i]=='paused':
+                        self.aria[i].send_signal(signal.SIGCONT)
+            except:
+                showerror('','无法下载，请刷新列表或重试')
+        self.refresh_list_local()
+              
     def pause(self):
         # Pause download task
-        pass
+        task_index=map(int,self.listbox_local.curselection())
+        if task_index==[]:
+            return
+        else:
+            for i in task_index:
+                if self.file_status_local[i]=='downloading':
+                    try:
+                        self.aria[i].send_signal(signal.SIGSTOP)
+                        self.file_status_local[i]='paused'
+                    except:
+                        continue
+        self.refresh_list_local()
         
     def remove(self):
-        # Remove unfinished task
         pass
     
-    def refresh_listbox_local(self):
-        return
+    def refresh_list_local(self):
+        # Check running status
+        for i in range(0,len(self.aria)):
+            if hasattr(self.aria[i],'poll'):
+                if self.aria[i].poll()==0:
+                    self.file_status_local[i]='done'
+                    self.aria[i].kill()
+        for i in range(0,len(self.file_name_local)):
+            f=os.path.expanduser('~/Downloads/%s'%self.file_name_local[i])
+            if not os.path.isfile(f) and self.file_status_local[i]=='done':
+                self.file_status_local[i]='missing'
+        self.refresh_listbox_local()
     
-    def exit(self):
-        print 
-        try:
-            for i in (0,len(self.aria)):
+    def refresh_listbox_local(self):
+        # Update the local file listbox
+        if not hasattr(self,'file_status_local') or len(self.file_status_local)==0:
+            return
+        self.listbox_local.delete(0, END)
+        for i in range (0,len(self.file_status_local)):
+            if self.file_status_local[i]=='done':
+                item_color='blue'
+            elif self.file_status_local[i]=='downloading':
+                item_color='cyan'
+            elif self.file_status_local[i]=='missing':
+                item_color='red'
+            elif self.file_status_local[i] in ['terminated','paused']:
+                item_color='black'
+            self.listbox_local.insert(END,'['+str(i+1)+']|'+self.file_status_local[i]+'|'+
+                                      self.file_size_local[i]+'|'+self.file_name_local[i])
+            self.listbox_local.itemconfig(END,fg=item_color)
+    
+    def exit(self): 
+        for i in range (0,len(self.aria)):
+            if hasattr(self.aria[i],'terminate'):
                 self.aria[i].terminate()
-        except:
-            try:
-                for i in (0,len(self.aria)):
-                    self.aria[i].terminate()
-            except:
-                pass
+                self.aria[i].kill()
+                self.file_status_local[i]='terminated'
         self.save_history()
         self.quit()
 
