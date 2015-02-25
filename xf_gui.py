@@ -71,7 +71,7 @@ class lwp_cookie(cookielib.LWPCookieJar):
         finally:
             f.close()
 
-global cookie_jar, cookie_path
+global cookie_jar, cookie_path, download_path
 cookie_path=os.path.expanduser('~/xfdown_cookie')
 cookie_jar=lwp_cookie(cookie_path)
 download_path=os.path.expanduser('~/Downloads')
@@ -263,8 +263,12 @@ class window_login(Toplevel):
             if login_result.find(decode_u8('登录成功')) != -1:
                 foo = self.login_info() # foo is a unused variable
                 self.save_config(self.remember_userinfo)
+                self.parent.userinfo=self.qqid
+                self.parent.title('QQ离线:%s'%self.qqid)
                 self.parent.get_list()
                 self.parent.refresh_listbox()
+                self.parent.load_history()
+                self.parent.refresh_listbox_local()
                 self.cancel()
             elif login_result.find(decode_u8('验证码不正确')) != -1:
                 showerror('','验证码不正确')
@@ -278,6 +282,9 @@ class window_login(Toplevel):
         
     def cancel(self,ESCAPE=True):
         self.destroy()
+
+
+
 
 
 class window_main(Tk):
@@ -300,17 +307,28 @@ class window_main(Tk):
             self.listbox_qqdrive.select_set(x)
             self.menu_context.post(event.x_root, event.y_root)         
     
-    def fold_menu(self,event):
-        self.menu_context.unpost()     
+    def pop_menu_local(self, event):
+        x=self.listbox_local.nearest(event.y)
+        if str(x) in self.listbox_local.curselection():
+            self.menu_context_local.post(event.x_root, event.y_root)
+        else:
+            self.listbox_local.select_clear(0, END)
+            self.listbox_local.select_set(x)
+            self.menu_context_local.post(event.x_root, event.y_root)
     
-    def hello(self):
-        print 'hello'
+    def fold_menu(self,event):
+        self.menu_context.unpost()
+        self.menu_context_local.unpost()
     
     def __init__(self,login_status):
         Tk.__init__(self)        
         self.title('QQ旋风离线下载')
         self.resizable(0, 0)
         self.sorting_order=-1
+        self.userinfo=''
+        self.cmds=[]
+        self.cmds_local=[]
+        
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         # Command buttons     
@@ -334,9 +352,9 @@ class window_main(Tk):
         for i in range(0,4):
             frame_local_button.columnconfigure(i, weight=1)
         frame_local_button.grid(row =0,column=1,columnspan=1,padx=10, pady=10,sticky=W+E)
-        button_resume = Button(frame_local_button, text = '下载', command=self.exit)
-        button_pause = Button(frame_local_button, text = '暂停', command=self.exit)
-        button_remove = Button(frame_local_button, text = '删除', command=self.exit)
+        button_resume = Button(frame_local_button, text = '启动', command=self.resume)
+        button_pause = Button(frame_local_button, text = '暂停', command=self.pause)
+        button_remove = Button(frame_local_button, text = '删除', command=self.remove)
         button_quit = Button(frame_local_button, text = '退出', command=self.exit)
         button_resume.grid(row=0,column=0, padx=5, pady=5)
         button_pause.grid(row=0,column=1, padx=5, pady=5)
@@ -376,6 +394,12 @@ class window_main(Tk):
         scroll_x_local = Scrollbar(frame_local_list, orient=HORIZONTAL, command=self.listbox_local.xview)
         scroll_x_local.grid(column=0,row=1, sticky=W+E)
         self.listbox_local['xscrollcommand'] = scroll_x_local.set
+        # Pop-up menus for local list
+        self.listbox_local.bind("<Button-3>", self.pop_menu_local)
+        self.menu_context_local = Menu(self, tearoff=0)
+        self.menu_context_local.add_command(label="启动", command=self.resume)
+        self.menu_context_local.add_command(label="暂停", command=self.pause)
+        self.menu_context_local.add_command(label="删除", command=self.remove) 
   
         # Center the main window
         self.update_idletasks()
@@ -384,13 +408,47 @@ class window_main(Tk):
         pos_x = (self.winfo_screenwidth() // 2) - (size_x // 2)
         pos_y = (self.winfo_screenheight() // 2) - (size_y // 2)
         self.geometry('+{}+{}'.format(pos_x, pos_y))
+        
         # Check login_status
         if login_status:
+            f=open(cookie_path,'r')
+            f.readline()
+            s=f.readline()
+            f.close()
+            self.userinfo=s.split('#')[1]
+            self.title('QQ离线:%s'%self.userinfo)
             self.get_list()
             self.refresh_listbox()
+            self.load_history()
         else:
             window_login(self) 
     
+    def load_history(self):
+        self.local_history=os.path.expanduser('~/%s_history'%self.userinfo)
+        self.file_name_local=[]
+        self.file_progress_local=[]
+        self.file_size_local=[]
+        self.file_progress_local=[]
+        if not os.path.isfile(self.local_history):
+            return
+        else:
+            os.chmod(self.local_history , stat.S_IREAD|stat.S_IWRITE)
+            history_file=open(self.local_history)
+            history=json.load(history_file)
+            history_file.close()
+            for item in history:
+                self.file_progress_local.append(item[0])
+                self.file_size_local.append(item[1])
+                self.file_name_local.append(item[2])
+                self.file_progress_local.append('terminated')
+              
+    def save_history(self):
+        history=zip(self.file_progress_local,self.file_size_local,self.file_name_local)
+        history_file=open(self.local_history,"w")
+        json.dump(history,history_file)
+        history_file.close()
+        os.chmod(self.local_history, stat.S_IREAD|stat.S_IWRITE)
+        
     def get_url(self,url,data=None):
         # Communicate with the QQ-lixian server 
         if data:
@@ -420,6 +478,7 @@ class window_main(Tk):
             self.file_name=[] # Human readable file name
             self.file_size=[]  # Human readable size
             self.file_progress=[]
+            self.filestatus=[]
 
             for num in range(len(res['data'])):
                 index=res['data'][num]
@@ -433,6 +492,13 @@ class window_main(Tk):
                     progress=str(index['comp_size']/size*100).split(".")[0]
  
                 self.filesize.append(size)
+                self.file_progress.append(progress)
+                self.file_name.append(decode_u8(self.filename[num]))
+
+                if eval(progress)==100:
+                    self.filestatus.append('ready')
+                else:
+                    self.filestatus.append('incomplete')
                 
                 unit=["B","K","M","G"]                
                 for i in range(4):
@@ -442,9 +508,8 @@ class window_main(Tk):
                     else:
                         break
                 size="%.1f%s"%(size,_unit)
-                self.file_progress.append(progress)
                 self.file_size.append(size)
-                self.file_name.append(decode_u8(self.filename[num]))
+                
         
     def get_source_address(self,filelist):
         # Get the download address for remote files
@@ -480,27 +545,37 @@ class window_main(Tk):
     def download(self):
         task_index=map(int,self.listbox_qqdrive.curselection())
         if task_index==[]:
-            showwarning('','尚未选择要下载文件')
+            showwarning('','尚未选择文件')
         else:
-            if askyesno('下载任务','确认下载%d项任务？'%(len(task_index))):
+            if askyesno('下载','确认下载%d项任务？'%(len(task_index))):
                 try:
                     self.get_source_address(task_index)
-                    cmds=[]
-                    task=[]
                     for i in task_index:
-                        if eval(self.file_progress[i])<100:
-                            showwarning('','请选择完成度100%的资源下载')
+                        if self.filestatus[i]=='incomplete':
+                            # True for finished files, False for unfinished files.
+                            # If the download task already existed in local list
+                            # it will be added to aria[] but not local_aria[]
+                            # No need to check if the task has finished or not
+                            # aria2c will take care of that.
+                            # If download task is RUNNING, it will not be added to aria[].
+                            showwarning('','请选择已完成的离线资源')
                             self.listbox_qqdrive.select_clear(0,END)
-                            return
+                            return 
+                    aria=[]
+                    for i in task_index:                        
                         cmd=['aria2c', '-c', '-s10', '-x10', '--header', 'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]
-                        cmds.append(cmd)
-                        task.append((i,self.file_name[i]))
-                    self.aria=[]
-                    for j in range(len(cmds)):
-                        self.aria.append(Popen(cmds[j],cwd=download_path,stdout=PIPE, bufsize=-1))
-                    
+                        if (not cmd in self.cmds) and (not cmd in self.cmds_local):
+                            self.cmds.append(cmd)
+                            self.cmds_local.append(cmd)
+                            self.filestatus[i]='downloading'
+                            aria.append(Popen(cmd,cwd=download_path,stdout=PIPE, bufsize=-1))
+                        elif cmd in self.cmds_local:
+                            # Resume local unfinished work or ignore depending on
+                            # if progress_local=100
+                            pass
+                   
                 except:
-                    showerror('','无法下载，请刷新列表或重试')                                 
+                    showerror('','下载错误，请刷新列表或重试')                                 
         return
     
     def add_task(self):
@@ -509,10 +584,14 @@ class window_main(Tk):
     def del_task(self):
         task_index=map(int,self.listbox_qqdrive.curselection())
         if task_index==[]:
-            showwarning('','尚未选择要删除文件')
+            showwarning('','尚未选择文件')
         else:
-            if askyesno('删除任务','确认删除%d项任务？'%(len(task_index))):
-                try:                    
+            if askyesno('删除','确认删除%d项任务？'%(len(task_index))):
+                try:
+                    for i in task_index:
+                        if self.filestatus[i]=='downloading':
+                            showwarning('','有文件正在下载中')
+                            return               
                     urlv = 'http://lixian.qq.com/handler/lixian/del_lixian_task.php'
                     for i in task_index:
                         data={'mids':self.filemid[i]}
@@ -525,7 +604,7 @@ class window_main(Tk):
     def sort_list(self,option):
         #Only sort the stored list
         if not hasattr(self,'filesize'):
-            showinfo('','无任务列表')
+            # No remote files
             return
         elif len(self.filesize)==1:
             return
@@ -566,6 +645,22 @@ class window_main(Tk):
         self.sorting_order=self.sorting_order*(-1)
         self.refresh_listbox()
         
+    def resume(self):
+        # Resume local unfinished task
+        # Check if its status is "downloading","pause" or "terminated"
+        pass
+        
+    def pause(self):
+        # Pause download task
+        pass
+        
+    def remove(self):
+        # Remove unfinished task
+        pass
+    
+    def refresh_listbox_local(self):
+        return
+    
     def exit(self):
         print 
         try:
@@ -577,6 +672,7 @@ class window_main(Tk):
                     self.aria[i].terminate()
             except:
                 pass
+        self.save_history()
         self.quit()
 
 def check_login(cookiepath):    
