@@ -563,7 +563,8 @@ class window_main(Tk):
                     local_index=[] # Keep the selections so it wont's be lost when refresh listbox
                     for i in task_index:
                         cmd=['aria2c', '-c', '-s10', '-x10', '--header',
-                             'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]]                                         
+                             'Cookie: FTN5K=%s'%self.filecom[i], '%s'%self.filehttp[i]
+                             ,'--summary-interval=2']                                         
                         if not self.file_name[i] in self.file_name_local:
                             self.file_status_local.append('terminated')
                             self.file_name_local.append(self.file_name[i])
@@ -662,9 +663,11 @@ class window_main(Tk):
                     if self.file_status_local[i] in ['downloading','done']:
                         continue
                     elif self.file_status_local[i] in ['terminated','missing']:
+                        print 'resumed'
                         self.file_status_local[i]='downloading'
-                        self.aria[i]=Popen(self.cmds_local[i],cwd=download_path,stdout=PIPE, bufsize=-1)
+                        self.aria[i]=Popen(self.cmds_local[i],cwd=download_path)
                     elif self.file_status_local[i]=='paused':
+                        print 'paused'
                         self.aria[i].send_signal(signal.SIGCONT)
             except:
                 showerror('','无法下载，请刷新列表或重试')
@@ -694,7 +697,8 @@ class window_main(Tk):
             if hasattr(self.aria[i],'poll'):
                 if self.aria[i].poll()==0:
                     self.file_status_local[i]='done'
-                    self.aria[i].kill()
+                    self.aria[i].terminate()
+                    self.aria[i]=''
         for i in range(0,len(self.file_name_local)):
             f=os.path.expanduser('~/Downloads/%s'%self.file_name_local[i])
             if not os.path.isfile(f) and self.file_status_local[i]=='done':
@@ -723,7 +727,7 @@ class window_main(Tk):
         for i in range (0,len(self.aria)):
             if hasattr(self.aria[i],'terminate'):
                 self.aria[i].terminate()
-                self.aria[i].kill()
+                self.aria[i]=''
                 self.file_status_local[i]='terminated'
         self.save_history()
         self.quit()
