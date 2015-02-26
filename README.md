@@ -4,10 +4,7 @@
 
 kikyous的XF_TUI for Linux地址：https://github.com/kikyous/xfdown
 
-![](https://github.com/spartty/xf_gui/blob/alpha/screenshot1.png)
-
-![](https://github.com/spartty/xf_gui/blob/alpha/screenshot2.png)
-
+![](https://github.com/spartty/xf_gui/blob/alpha/screenshot.png)
 
 
 现有功能：
